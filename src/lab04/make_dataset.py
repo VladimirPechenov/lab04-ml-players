@@ -1,14 +1,15 @@
 """Synthetic sessions. Churn means no sessions on days 21..30."""
+
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
-OUT = Path(__file__).resolve().parents[2] / 'data' / 'events.csv'
+OUT = Path(__file__).resolve().parents[2] / "data" / "events.csv"
 ARCHETYPES = {
-    'aggressive': dict(kills=9, deaths=4, explored=0.25, chats=1),
-    'explorer': dict(kills=2, deaths=2, explored=0.85, chats=2),
-    'social': dict(kills=3, deaths=3, explored=0.5, chats=11),
+    "aggressive": dict(kills=9, deaths=4, explored=0.25, chats=1),
+    "explorer": dict(kills=2, deaths=2, explored=0.85, chats=2),
+    "social": dict(kills=3, deaths=3, explored=0.5, chats=11),
 }
 
 
@@ -32,18 +33,26 @@ def make(n_players: int = 1500, seed: int = 42) -> pd.DataFrame:
         for session, day in enumerate(days):
             length = rng.gamma(5, 100) * np.exp(0.3 * engagement)
             length *= np.exp(0.2 * engagement * day / 20)
-            rows.append(dict(
-                player_id=f'p{pid:04d}', session_id=f'p{pid:04d}_s{session:03d}', day=day,
-                hour=int(rng.integers(0, 24)), length_s=round(float(length), 3),
-                kills=int(rng.poisson(params['kills'])), deaths=int(rng.poisson(params['deaths'])),
-                explored=round(float(np.clip(rng.normal(params['explored'], 0.08), 0, 1)), 5),
-                chats=int(rng.poisson(params['chats'])), archetype=arch, churned=int(n_future == 0),
-            ))
+            rows.append(
+                dict(
+                    player_id=f"p{pid:04d}",
+                    session_id=f"p{pid:04d}_s{session:03d}",
+                    day=day,
+                    hour=int(rng.integers(0, 24)),
+                    length_s=round(float(length), 3),
+                    kills=int(rng.poisson(params["kills"])),
+                    deaths=int(rng.poisson(params["deaths"])),
+                    explored=round(float(np.clip(rng.normal(params["explored"], 0.08), 0, 1)), 5),
+                    chats=int(rng.poisson(params["chats"])),
+                    archetype=arch,
+                    churned=int(n_future == 0),
+                )
+            )
     return pd.DataFrame(rows)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     OUT.parent.mkdir(exist_ok=True)
     data = make()
     data.to_csv(OUT, index=False)
-    print(f'{len(data)} sessions, {data.player_id.nunique()} players -> {OUT}')
+    print(f"{len(data)} sessions, {data.player_id.nunique()} players -> {OUT}")

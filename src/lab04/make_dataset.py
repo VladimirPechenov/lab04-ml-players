@@ -1,37 +1,49 @@
-"""Синтетический датасет: 1000+ игроков, 30 дней, 3 архетипа (aggressive / explorer / social)."""
-
+"""Synthetic sessions. Churn means no sessions on days 21..30."""
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
-OUT = Path(__file__).resolve().parents[2] / "data" / "events.csv"
+OUT = Path(__file__).resolve().parents[2] / 'data' / 'events.csv'
 ARCHETYPES = {
-    "aggressive": dict(kills=8, deaths=4, explored=0.3, chats=1, sessions=12),
-    "explorer": dict(kills=2, deaths=2, explored=0.9, chats=2, sessions=9),
-    "social": dict(kills=3, deaths=3, explored=0.5, chats=10, sessions=15),
+    'aggressive': dict(kills=9, deaths=4, explored=0.25, chats=1),
+    'explorer': dict(kills=2, deaths=2, explored=0.85, chats=2),
+    'social': dict(kills=3, deaths=3, explored=0.5, chats=11),
 }
 
 
-def make(n_players: int = 1200, seed: int = 42) -> pd.DataFrame:
+def make(n_players: int = 1500, seed: int = 42) -> pd.DataFrame:
+    """Latent engagement affects behaviour and return with noise.
+
+    Eligible cohort: at least one observation session. Archetype and engagement
+    are never model inputs. Future events are sampled after observation events.
+    """
     rng = np.random.default_rng(seed)
     rows = []
     for pid in range(n_players):
         arch = rng.choice(list(ARCHETYPES))
-        p = ARCHETYPES[arch]
-        churned = rng.random() < (0.35 if arch == "aggressive" else 0.2)
-        n_sess = max(1, int(rng.poisson(p["sessions"]) * (0.4 if churned else 1)))
-        for s in range(n_sess):
-            rows.append(dict(player_id=f"p{pid}", session_id=f"p{pid}_s{s}", day=int(rng.integers(0, 30)),
-                             kills=rng.poisson(p["kills"]), deaths=rng.poisson(p["deaths"]),
-                             explored=float(np.clip(rng.normal(p["explored"], 0.1), 0, 1)),
-                             chats=rng.poisson(p["chats"]), length_s=float(rng.gamma(3, 200)),
-                             archetype=arch, churned=int(churned)))
+        params = ARCHETYPES[arch]
+        engagement = rng.normal()
+        n_obs = 1 + rng.poisson(11 * np.exp(0.55 * engagement))
+        p_return = 1 / (1 + np.exp(-(0.6 + 2.8 * engagement)))
+        n_future = 1 + rng.poisson(4) if rng.random() < p_return else 0
+        days = sorted(rng.integers(0, 21, n_obs).tolist())
+        days += sorted(rng.integers(21, 31, n_future).tolist())
+        for session, day in enumerate(days):
+            length = rng.gamma(5, 100) * np.exp(0.3 * engagement)
+            length *= np.exp(0.2 * engagement * day / 20)
+            rows.append(dict(
+                player_id=f'p{pid:04d}', session_id=f'p{pid:04d}_s{session:03d}', day=day,
+                hour=int(rng.integers(0, 24)), length_s=round(float(length), 3),
+                kills=int(rng.poisson(params['kills'])), deaths=int(rng.poisson(params['deaths'])),
+                explored=round(float(np.clip(rng.normal(params['explored'], 0.08), 0, 1)), 5),
+                chats=int(rng.poisson(params['chats'])), archetype=arch, churned=int(n_future == 0),
+            ))
     return pd.DataFrame(rows)
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     OUT.parent.mkdir(exist_ok=True)
-    df = make()
-    df.to_csv(OUT, index=False)
-    print(f"{len(df)} событий-сессий, {df.player_id.nunique()} игроков → {OUT}")
+    data = make()
+    data.to_csv(OUT, index=False)
+    print(f'{len(data)} sessions, {data.player_id.nunique()} players -> {OUT}')

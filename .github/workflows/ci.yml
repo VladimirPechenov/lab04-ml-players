@@ -1,9 +1,7 @@
 name: CI
-
 on:
   push:
   pull_request:
-
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -11,13 +9,19 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: '3.12'
           cache: pip
       - name: Install
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-      - name: Lint (ruff)
-        run: ruff check .
-      - name: Tests (pytest)
-        run: pytest
+        run: python -m pip install -r requirements.txt
+      - name: Lint
+        run: python -m ruff check .
+      - name: Tests
+        run: python -m pytest
+      - name: Execute complete notebook and assert AUC threshold
+        run: python -m jupyter nbconvert --to notebook --execute --output lab04-verified.ipynb --output-dir /tmp --ExecutePreprocessor.timeout=300 notebooks/lab04.ipynb
+      - uses: actions/upload-artifact@v4
+        with:
+          name: verified-notebook-and-results
+          path: |
+            /tmp/lab04-verified.ipynb
+            results/

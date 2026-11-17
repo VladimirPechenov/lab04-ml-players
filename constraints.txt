@@ -1,0 +1,6 @@
+# Tested core versions for reproducible numeric results; Python 3.12+.
+numpy==2.5.5
+pandas==3.1.1
+scikit-learn==1.9.1
+matplotlib==3.11.2
+scipy==1.18.1
